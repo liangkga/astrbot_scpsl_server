@@ -1,0 +1,39 @@
+name: "SCP:SL服务器查询"
+author: "若梦"
+description: "仿照server_Qchat的SCP:SL服务器查询插件，支持查询服务器在线人数、状态和详细信息"
+version: "1.0.0"
+repo_url: ""
+tags:
+  - "游戏"
+  - "SCP"
+  - "服务器查询"
+  - "实用工具"
+commands:
+  - name: "/servers"
+    description: "显示预设服务器列表"
+    usage: "/servers"
+    example: "/servers"
+  
+  - name: "/xy"
+    description: "查询所有椿雨服务器状态总览"
+    usage: "/xy"
+    example: "/xy"
+  
+  - name: "/cx"
+    description: "查询自定义SCP:SL服务器状态"
+    usage: "/cx <IP:端口> 或 /cx <IP> [端口]"
+    example: "/cx 127.0.0.1:7777"
+  
+  - name: "/zc"
+    description: "群聊服务器管理 - 查询或设置当前群聊绑定的服务器"
+    usage: "/zc [服务器IP] [端口] [服务器名称]"
+    example: "/zc 192.168.1.100 7777 我的服务器"
+  
+  - name: "/scpsl_help"
+    description: "显示插件帮助信息"
+    usage: "/scpsl_help"
+    example: "/scpsl_help"
+auto_features:
+  - "自动检测包含'炸了?'的消息并返回服务器状态"
+requirements: []
+min_astrbot_version: "3.0.0"
