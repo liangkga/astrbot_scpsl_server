@@ -97,7 +97,8 @@ class SCPSLServerQuery(Star):
             ("43.139.108.159",8001, "椿雨纯净服#2"),
             ("43.139.108.159",8002, "椿雨插件服#1"),
             ("43.139.108.159",8003, "椿雨插件服#2"),
-            ("43.139.108.159",7777, "椿雨萌新服")
+            ("43.139.108.159",7777, "椿雨萌新服"),
+            ("8.138.236.97", 5000, "银狼服务器")
         ]
         
         response = "服务器状态总览\n"
@@ -182,58 +183,70 @@ class SCPSLServerQuery(Star):
         yield event.plain_result(response)
     
     async def _query_server_tcp(self, ip: str, port: int) -> Dict[str, Any]:
-        """使用A2S协议查询服务器信息"""
+        """使用支持challenge的A2S协议查询服务器信息"""
         # 尝试多个可能的查询端口
         query_ports = [port, port + 1, port - 1]
         
         for query_port in query_ports:
+            sock = None
             try:
                 # 创建UDP socket进行A2S查询
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                sock.settimeout(3.0)  # 减少超时时间
+                sock.settimeout(5.0)  # 增加超时时间以适应challenge机制
                 
                 start_time = time.time()
                 
-                # A2S_INFO查询
+                # 第一次A2S_INFO查询
                 query = b"\xFF\xFF\xFF\xFF\x54Source Engine Query\x00"
                 sock.sendto(query, (ip, query_port))
                 
                 response, addr = sock.recvfrom(1400)
-                ping = round((time.time() - start_time) * 1000)
                 
-                sock.close()
-                
-                if len(response) < 6:
+                if len(response) < 5:
                     continue
                 
                 # 检查响应头
                 if response[:4] != b"\xFF\xFF\xFF\xFF":
                     continue
                 
-                # 检查是否是挑战响应
+                # 检查是否收到challenge响应
                 if response[4] == 0x41:  # S2C_CHALLENGE
                     if len(response) >= 9:
+                        # 提取challenge值
                         challenge = struct.unpack('<I', response[5:9])[0]
-                        # 重新发送带挑战的查询
+                        
+                        # 重新发送带challenge的查询
                         query_with_challenge = query + struct.pack('<I', challenge)
-                        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                        sock.settimeout(3.0)
                         sock.sendto(query_with_challenge, (ip, query_port))
                         response, addr = sock.recvfrom(1400)
-                        sock.close()
+                    else:
+                        # challenge响应格式错误
+                        continue
+                
+                ping = round((time.time() - start_time) * 1000)
                 
                 # 解析A2S_INFO响应
-                if response[4] == 0x49:  # A2S_INFO response
+                if len(response) >= 5 and response[4] == 0x49:  # A2S_INFO response
                     result = self._parse_a2s_info(response[5:], ping)
                     if result.get('status') == 'online':
                         return result
                 
             except socket.timeout:
+                logger.debug(f"查询超时: {ip}:{query_port}")
                 continue
             except ConnectionRefusedError:
+                logger.debug(f"连接被拒绝: {ip}:{query_port}")
                 continue
             except Exception as e:
+                logger.debug(f"查询异常 {ip}:{query_port}: {str(e)}")
                 continue
+            finally:
+                # 确保socket被正确关闭
+                if sock:
+                    try:
+                        sock.close()
+                    except:
+                        pass
         
         # 如果所有端口都失败，返回错误
         return {'status': 'offline', 'error': '无法连接到服务器'}
